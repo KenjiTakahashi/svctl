@@ -52,6 +52,20 @@ func (c *cmdDown) Names() []string {
 	return []string{"down", "stop"}
 }
 
+type cmdRestart struct{}
+
+func (c *cmdRestart) Action() []byte {
+	return []byte("tcu")
+}
+
+func (c *cmdRestart) Help() string {
+	return ""
+}
+
+func (c *cmdRestart) Names() []string {
+	return []string{"restart"}
+}
+
 type cmdSignal struct {
 	action []byte
 }
@@ -77,6 +91,10 @@ func (c *cmdSignal) Match(name string) bool {
 			c.action = []byte(name[0:1])
 			return true
 		}
+		if name == "reload" {
+			c.action = []byte("h")
+			return true
+		}
 	}
 	return false
 }
@@ -85,6 +103,7 @@ func cmdAll() []cmd {
 	return []cmd{
 		&cmdUp{},
 		&cmdDown{},
+		&cmdRestart{},
 		&cmdSignal{},
 	}
 }
