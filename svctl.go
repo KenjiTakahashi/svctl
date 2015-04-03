@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/peterh/liner"
 )
 
@@ -20,25 +21,62 @@ func fatal(err error) {
 	}
 }
 
-const basedir = "/etc/service" // TODO: Make configurable
-
 type ctl struct {
-	line *liner.State
+	line    *liner.State
+	basedir string
 }
 
 func newCtl() *ctl {
-	return &ctl{
-		line: liner.NewLiner(),
+	c := &ctl{line: liner.NewLiner()}
+
+	fn, _ := xdg.DataFile("svctl/hist")
+	if f, err := os.Open(fn); err == nil {
+		c.line.ReadHistory(f)
+		f.Close()
 	}
+	c.basedir = os.Getenv("SVDIR")
+	if c.basedir == "" {
+		c.basedir = "/service"
+	}
+
+	c.line.SetTabCompletionStyle(liner.TabPrints)
+	c.line.SetCompleter(func(l string) []string {
+		s := strings.Split(l, " ")
+		if len(s) <= 1 {
+			if len(s) == 0 {
+				return cmdMatchName("")
+			}
+			return cmdMatchName(s[0])
+		}
+		services := c.Services(fmt.Sprintf("%s*", s[len(s)-1]))
+		compl := make([]string, len(services))
+		for i, service := range services {
+			compl[i] = fmt.Sprintf(
+				"%s %s ",
+				strings.Join(s[:len(s)-1], " "), path.Base(service),
+			)
+		}
+		return compl
+	})
+
+	return c
 }
 
 func (c *ctl) Close() {
+	fn, _ := xdg.DataFile("svctl/hist")
+	if f, err := os.Create(fn); err == nil {
+		if n, err := c.line.WriteHistory(f); err != nil {
+			log.Printf("error writing history file: %s, lines written: %d", err, n)
+		}
+	} else {
+		log.Printf("error opening history file: %s", err)
+	}
 	c.line.Close()
 }
 
 func (c *ctl) Services(pattern string) []string {
-	if len(pattern) < len(basedir) || pattern[:len(basedir)] != basedir {
-		pattern = path.Join(basedir, pattern)
+	if len(pattern) < len(c.basedir) || pattern[:len(c.basedir)] != c.basedir {
+		pattern = path.Join(c.basedir, pattern)
 	}
 	files, err := filepath.Glob(pattern)
 	fatal(err)
@@ -106,11 +144,13 @@ func (c *ctl) Status(id string, log bool) {
 }
 
 func (c *ctl) Ctl(cmd string) bool {
+	c.line.AppendHistory(cmd)
 	params := strings.Split(cmd, " ")
 	var action []byte
 	switch params[0] {
-	case "q", "quit":
-		return true
+	// FIXME: "quit" is reserved by runit (and "exit" too)...
+	// case "q", "quit":
+	// 	return true
 	case "s", "status":
 		if len(params) == 1 {
 			c.Status("*", true)
@@ -150,6 +190,9 @@ func (c *ctl) Ctl(cmd string) bool {
 	}
 	var wg sync.WaitGroup
 	for _, param := range params[1:] {
+		if param == "" {
+			continue
+		}
 		for _, service := range c.Services(param) {
 			// TODO: Check status for not running, once w/o TERM, etc.
 			f, err := os.OpenFile(
