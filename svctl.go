@@ -83,16 +83,20 @@ func (c *ctl) Services(pattern string) []string {
 	return files
 }
 
-func (c *ctl) printStatus(dir string) {
+func (c *ctl) printStatusGiven(status []byte, name string) {
+	sv := svStatus(status)
+	fmt.Printf("%s: %s", name, sv)
+	if sv == "RUNNING" {
+		fmt.Printf(" (pid %d)", svPid(status))
+	}
+	fmt.Printf(", %ds", svNow()-svTime(status))
+}
+
+func (c *ctl) printStatus(dir, name string) {
 	if status, err := c.status(dir); err != nil {
-		fmt.Printf(": %s", err)
+		fmt.Printf("%s: %s", name, err)
 	} else {
-		sv := svStatus(status)
-		fmt.Printf(": %s", sv)
-		if sv == "RUNNING" {
-			fmt.Printf(" (pid %d)", svPid(status))
-		}
-		fmt.Printf(", %ds", svNow()-svTime(status))
+		c.printStatusGiven(status, name)
 	}
 }
 
@@ -125,8 +129,7 @@ func (c *ctl) Status(id string, log bool) {
 			continue
 		}
 
-		fmt.Print(path.Base(dir))
-		c.printStatus(dir)
+		c.printStatus(dir, path.Base(dir))
 
 		if log {
 			logdir := path.Join(dir, "log")
@@ -135,8 +138,7 @@ func (c *ctl) Status(id string, log bool) {
 				continue
 			}
 
-			fmt.Print(" ;log")
-			c.printStatus(logdir)
+			c.printStatus(logdir, " ;log")
 		}
 
 		fmt.Println()
@@ -145,6 +147,7 @@ func (c *ctl) Status(id string, log bool) {
 
 func (c *ctl) Ctl(cmd string) bool {
 	c.line.AppendHistory(cmd)
+	start := svNow()
 	params := strings.Split(cmd, " ")
 	var action []byte
 	switch params[0] {
@@ -206,9 +209,27 @@ func (c *ctl) Ctl(cmd string) bool {
 			wg.Add(1)
 			go func(service string) {
 				defer wg.Done()
-				// TODO: Better waiting algorithm
-				time.Sleep(1 * time.Second)
-				c.Status(service, false)
+				timeout := time.After(7 * time.Second)
+				tick := time.Tick(100 * time.Millisecond)
+				for {
+					select {
+					case <-timeout:
+						fmt.Printf("TIMEOUT: ")
+						c.Status(service, false)
+						return
+					case <-tick:
+						status, err := c.status(service)
+						if err != nil {
+							fmt.Printf("%s: %s\n", service, err)
+							return
+						}
+						if svCheck(action, status, start) {
+							c.printStatusGiven(status, path.Base(service))
+							fmt.Println()
+							return
+						}
+					}
+				}
 			}(service)
 		}
 	}

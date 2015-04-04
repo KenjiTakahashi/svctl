@@ -26,6 +26,47 @@ func svStatus(status []byte) string {
 	}
 }
 
+func svCheck(action, status []byte, start uint64) bool {
+	for _, a := range action {
+		pid := svPid(status)
+		switch a {
+		case 'x':
+			//TODO
+		case 'u':
+			if pid == 0 || status[19] != 1 {
+				return false
+			}
+			//TODO: !checkscript():return false
+		case 'd':
+			if pid != 0 || status[19] != 0 {
+				return false
+			}
+		case 't', 'k':
+			if pid == 0 && status[17] == 'd' {
+				break
+			}
+			time := svTime(status)
+			if start > time || pid == 0 || status[18] != 0 { //TODO: ||!checkscript()
+				return false
+			}
+		case 'o':
+			time := svTime(status)
+			if (pid == 0 && start > time) || (pid != 0 && status[17] != 'd') {
+				return false
+			}
+		case 'p':
+			if pid != 0 && status[16] == 0 {
+				return false
+			}
+		case 'c':
+			if pid != 0 && status[16] != 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 const svTimeMod = 4611686018427387914
 
 func svTime(status []byte) uint64 {
