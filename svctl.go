@@ -145,6 +145,20 @@ func (c *ctl) Status(id string, log bool) {
 	}
 }
 
+func (c *ctl) control(action []byte, service string) error {
+	f, err := os.OpenFile(
+		path.Join(service, "supervise/control"), os.O_WRONLY, 0600,
+	)
+	if err != nil {
+		return fmt.Errorf("%s: unable to open supervise/control", path.Base(service))
+	}
+	defer f.Close()
+	if _, err := f.Write(action); err != nil {
+		return fmt.Errorf("%s: unable to write to supervise/control", path.Base(service))
+	}
+	return nil
+}
+
 func (c *ctl) Ctl(cmd string) bool {
 	c.line.AppendHistory(cmd)
 	start := svNow()
@@ -197,14 +211,16 @@ func (c *ctl) Ctl(cmd string) bool {
 			continue
 		}
 		for _, service := range c.Services(param) {
-			// TODO: Check status for not running, once w/o TERM, etc.
-			f, err := os.OpenFile(
-				path.Join(service, "supervise/control"), os.O_WRONLY, 0600,
-			)
-			fatal(err)
-			_, err = f.Write(action)
-			fatal(err)
-			f.Close()
+			status, err := c.status(service)
+			if err != nil {
+				continue
+			}
+			if svCheckControl(action, status) {
+				if err := c.control(action, service); err != nil {
+					fmt.Println(err)
+					continue
+				}
+			}
 
 			wg.Add(1)
 			go func(service string) {

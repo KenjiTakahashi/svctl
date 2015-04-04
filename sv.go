@@ -67,6 +67,10 @@ func svCheck(action, status []byte, start uint64) bool {
 	return true
 }
 
+func svCheckControl(action, status []byte) bool {
+	return status[17] != action[0] || (action[0] == 'd' && status[18] != 1)
+}
+
 const svTimeMod = 4611686018427387914
 
 func svTime(status []byte) uint64 {
