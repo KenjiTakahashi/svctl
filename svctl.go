@@ -16,12 +16,6 @@ import (
 	"github.com/peterh/liner"
 )
 
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 type status struct {
 	name string
 	err  error
@@ -162,10 +156,10 @@ func (c *ctl) Close() {
 	fn, _ := xdg.DataFile("svctl/hist")
 	if f, err := os.Create(fn); err == nil {
 		if n, err := c.line.WriteHistory(f); err != nil {
-			log.Printf("error writing history file: %s, lines written: %d", err, n)
+			log.Printf("error writing history file: %s, lines written: %d\n", err, n)
 		}
 	} else {
-		log.Printf("error opening history file: %s", err)
+		log.Printf("error opening history file: %s\n", err)
 	}
 	c.line.Close()
 }
@@ -175,7 +169,9 @@ func (c *ctl) Services(pattern string) []string {
 		pattern = path.Join(c.basedir, pattern)
 	}
 	files, err := filepath.Glob(pattern)
-	fatal(err)
+	if err != nil {
+		log.Printf("error getting services list: %s\n", err)
+	}
 	return files
 }
 
@@ -322,7 +318,7 @@ func (c *ctl) Run() bool {
 		fmt.Println()
 		return true
 	} else if err != nil {
-		fmt.Println(err) // TODO: Better error handling
+		log.Printf("error reading prompt contents: %s\n", err)
 		return false
 	}
 	return c.Ctl(cmd)
