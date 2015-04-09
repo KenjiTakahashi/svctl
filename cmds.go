@@ -31,7 +31,10 @@ func (c *cmdUp) Action() []byte {
 }
 
 func (c *cmdUp) Help() string {
-	return ""
+	return strings.TrimSpace(`
+up NAMES...   Starts service(s) with matching NAMES.
+              NAMES support globing with '*' and '?'.
+`)
 }
 
 func (c *cmdUp) Names() []string {
@@ -45,7 +48,10 @@ func (c *cmdDown) Action() []byte {
 }
 
 func (c *cmdDown) Help() string {
-	return ""
+	return strings.TrimSpace(`
+down NAMES...   Stops service(s) with matching NAMES.
+                NAMES support globing with '*' and '?'.
+`)
 }
 
 func (c *cmdDown) Names() []string {
@@ -59,7 +65,12 @@ func (c *cmdRestart) Action() []byte {
 }
 
 func (c *cmdRestart) Help() string {
-	return ""
+	return strings.TrimSpace(`
+restart NAMES...   Restarts service(s) with matching NAMES.
+                   NAMES support globing with '*' and '?'.
+                   Waits up to 7 seconds for the service to get back up, then
+                   reports TIMEOUT.
+`)
 }
 
 func (c *cmdRestart) Names() []string {
@@ -67,32 +78,41 @@ func (c *cmdRestart) Names() []string {
 }
 
 type cmdSignal struct {
-	action []byte
+	action string
 }
 
 func (c *cmdSignal) Action() []byte {
-	return c.action
+	if c.action == "" {
+		return nil
+	}
+	if c.action == "reload" {
+		return []byte{'h'}
+	}
+	return []byte(c.action[0:1])
 }
 
 func (c *cmdSignal) Help() string {
-	return ""
+	m := map[byte]string{
+		'p': "STOP", 'c': "CONT", 'h': "HUP", 'r': "HUP", 'a': "ALRM", 'i': "INT",
+		'q': "QUIT", '1': "USR1", '2': "USR2", 't': "TERM", 'k': "KILL",
+	}
+	return fmt.Sprintf(strings.TrimSpace(`
+%s NAMES...   Sends signal '%s' to service(s) with matching NAMES.
+%-[3]*s            NAMES support globing with '*' and '?'.
+`), c.action, m[c.action[0]], len(c.action), "")
 }
 
 func (c *cmdSignal) Names() []string {
 	return []string{
-		"pause", "cont", "hup", "alarm", "interrupt",
-		"quit", "1", "2", "term", "kill",
+		"pause", "cont", "hup", "reload", "alarm",
+		"interrupt", "quit", "1", "2", "term", "kill",
 	}
 }
 
 func (c *cmdSignal) Match(name string) bool {
 	for _, s := range c.Names() {
 		if name == s || name == s[0:1] {
-			c.action = []byte(name[0:1])
-			return true
-		}
-		if name == "reload" {
-			c.action = []byte("h")
+			c.action = s
 			return true
 		}
 	}
