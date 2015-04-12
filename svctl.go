@@ -264,13 +264,46 @@ func (c *ctl) control(action []byte, service string) error {
 	return nil
 }
 
+// ctl Delegates a single action for single service.
+func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	status := newStatus(service, "")
+	if status.Errored() {
+		return
+	}
+	if status.CheckControl(action) {
+		if err := c.control(action, service); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	timeout := time.After(7 * time.Second)
+	tick := time.Tick(100 * time.Millisecond)
+	for {
+		select {
+		case <-timeout:
+			fmt.Printf("TIMEOUT: ")
+			c.Status(service, false)
+			return
+		case <-tick:
+			status := newStatus(service, "")
+			if status.Check(action, start) {
+				fmt.Println(status)
+				return
+			}
+		}
+	}
+}
+
 // Ctl Handles command supplied by user.
 //
 // Depending on the command, it might just exit, print help or propagate
-// command to cmds to hand the action off to runsv.
+// command to cmds to delegate action to runsv.
 //
 // If more than one service was specified with the command,
-// actions are handed off asynchronically.
+// actions are delegated asynchronically.
 func (c *ctl) Ctl(cmd string) bool {
 	c.line.AppendHistory(cmd)
 	start := svNow()
@@ -322,37 +355,8 @@ func (c *ctl) Ctl(cmd string) bool {
 			continue
 		}
 		for _, service := range c.Services(param) {
-			status := newStatus(service, "")
-			if status.Errored() {
-				continue
-			}
-			if status.CheckControl(action) {
-				if err := c.control(action, service); err != nil {
-					fmt.Println(err)
-					continue
-				}
-			}
-
 			wg.Add(1)
-			go func(service string) {
-				defer wg.Done()
-				timeout := time.After(7 * time.Second)
-				tick := time.Tick(100 * time.Millisecond)
-				for {
-					select {
-					case <-timeout:
-						fmt.Printf("TIMEOUT: ")
-						c.Status(service, false)
-						return
-					case <-tick:
-						status := newStatus(service, "")
-						if status.Check(action, start) {
-							fmt.Println(status)
-							return
-						}
-					}
-				}
-			}(service)
+			go c.ctl(action, service, start, &wg)
 		}
 	}
 	wg.Wait()
