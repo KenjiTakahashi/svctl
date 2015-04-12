@@ -1,3 +1,25 @@
+// svctl
+// Copyright (C) 2015 Karol 'Kenji Takahashi' Woźniak
+//
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+// OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+// svctl is an interactive runit controller.
 package main
 
 import (
@@ -16,6 +38,9 @@ import (
 	"github.com/peterh/liner"
 )
 
+// status Represents current status of a single process.
+// Note that it gather all information during construction,
+// so it is generally meant to be short lived.
 type status struct {
 	name string
 	err  error
@@ -28,6 +53,8 @@ type status struct {
 	svTime   uint64
 }
 
+// newStatus Creates new status representation for given directory and name.
+// Name is optional and for display purposes only, if not specified Base(dir) is used.
 func newStatus(dir, name string) *status {
 	s := &status{Offsets: make([]int, 2)}
 
@@ -58,6 +85,7 @@ func newStatus(dir, name string) *status {
 	return s
 }
 
+// status Reads current status from specified dir.
 func (s *status) status(dir string) ([]byte, error) {
 	if _, err := os.OpenFile(path.Join(dir, "supervise/ok"), os.O_WRONLY, 0600); err != nil {
 		return nil, fmt.Errorf("unable to open supervise/ok")
@@ -80,6 +108,7 @@ func (s *status) status(dir string) ([]byte, error) {
 	return b, nil
 }
 
+// Check Performs svCheck on status, if retrieved successfully.
 func (s *status) Check(action []byte, start uint64) bool {
 	if s.err != nil {
 		return true
@@ -87,10 +116,15 @@ func (s *status) Check(action []byte, start uint64) bool {
 	return svCheck(action, s.sv, start)
 }
 
+// CheckControl Performs svCheckControl on status.
 func (s *status) CheckControl(action []byte) bool {
 	return svCheckControl(action, s.sv)
 }
 
+// String Returns nicely stringified version of the status.
+//
+// s.Offsets can be set from the outside to make indentation uniform
+// among multiple statuses.
 func (s *status) String() string {
 	var status bytes.Buffer
 	fmt.Fprintf(&status, "%-[1]*s", s.Offsets[0]+3, s.name)
@@ -107,15 +141,19 @@ func (s *status) String() string {
 	return status.String()
 }
 
+// Errored Returns whether status retrieval ended with error or not.
 func (s *status) Errored() bool {
 	return s.err != nil
 }
 
+// ctl Represents main svctl entry point.
 type ctl struct {
 	line    *liner.State
 	basedir string
 }
 
+// newCtl Creates new ctl instance.
+// Initializes input prompt, reads history, reads $SVDIR.
 func newCtl() *ctl {
 	c := &ctl{line: liner.NewLiner()}
 
@@ -152,6 +190,7 @@ func newCtl() *ctl {
 	return c
 }
 
+// Close Closes input prompt, saves history to file.
 func (c *ctl) Close() {
 	fn, _ := xdg.DataFile("svctl/hist")
 	if f, err := os.Create(fn); err == nil {
@@ -164,6 +203,7 @@ func (c *ctl) Close() {
 	c.line.Close()
 }
 
+// Services Returns paths to all services matching pattern.
 func (c *ctl) Services(pattern string) []string {
 	if len(pattern) < len(c.basedir) || pattern[:len(c.basedir)] != c.basedir {
 		pattern = path.Join(c.basedir, pattern)
@@ -175,6 +215,7 @@ func (c *ctl) Services(pattern string) []string {
 	return files
 }
 
+// Status Prints all statuses matching id and optionally their log process statuses.
 func (c *ctl) Status(id string, toLog bool) {
 	// TODO: normally (up|down) and stuff?
 	statuses := []*status{}
@@ -208,6 +249,7 @@ func (c *ctl) Status(id string, toLog bool) {
 	}
 }
 
+// control Sends action byte to service.
 func (c *ctl) control(action []byte, service string) error {
 	f, err := os.OpenFile(
 		path.Join(service, "supervise/control"), os.O_WRONLY, 0600,
@@ -222,15 +264,21 @@ func (c *ctl) control(action []byte, service string) error {
 	return nil
 }
 
+// Ctl Handles command supplied by user.
+//
+// Depending on the command, it might just exit, print help or propagate
+// command to cmds to hand the action off to runsv.
+//
+// If more than one service was specified with the command,
+// actions are handed off asynchronically.
 func (c *ctl) Ctl(cmd string) bool {
 	c.line.AppendHistory(cmd)
 	start := svNow()
 	params := strings.Split(cmd, " ")
 	var action []byte
 	switch params[0] {
-	// FIXME: "quit" is reserved by runit (and "exit" too)...
-	// case "q", "quit":
-	// 	return true
+	case "e", "exit":
+		return true
 	case "s", "status":
 		if len(params) == 1 {
 			c.Status("*", true)
@@ -312,6 +360,8 @@ func (c *ctl) Ctl(cmd string) bool {
 	return false
 }
 
+// Run Performs one tick of a input prompt event loop.
+// If this function returns true, the outside loop should terminate.
 func (c *ctl) Run() bool {
 	cmd, err := c.line.Prompt("svctl> ")
 	if err == io.EOF {
@@ -324,6 +374,7 @@ func (c *ctl) Run() bool {
 	return c.Ctl(cmd)
 }
 
+// main Creates svctl entry point, prints all processes statuses and launches event loop.
 func main() {
 	ctl := newCtl()
 	defer ctl.Close()

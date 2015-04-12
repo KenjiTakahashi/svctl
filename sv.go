@@ -1,7 +1,30 @@
+// svctl
+// Copyright (C) 2015 Karol 'Kenji Takahashi' Woźniak
+//
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+// OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package main
 
 import "time"
 
+// svPid Parses process PID from sv status string.
+// Returns `0` if process is not running.
 func svPid(status []byte) uint {
 	pid := uint(status[15])
 	pid <<= 8
@@ -13,6 +36,7 @@ func svPid(status []byte) uint {
 	return pid
 }
 
+// svStatus Parses process state from sv status string.
 func svStatus(status []byte) string {
 	switch status[19] {
 	case 0:
@@ -26,6 +50,8 @@ func svStatus(status []byte) string {
 	}
 }
 
+// svCheck Checks whether process already entered desired state
+// after sending it the control action.
 func svCheck(action, status []byte, start uint64) bool {
 	for _, a := range action {
 		pid := svPid(status)
@@ -67,12 +93,17 @@ func svCheck(action, status []byte, start uint64) bool {
 	return true
 }
 
+// svCheckControl Checks whether we should send a control action.
+// We should not when process recently got ONCE or TERM.
 func svCheckControl(action, status []byte) bool {
 	return status[17] != action[0] || (action[0] == 'd' && status[18] != 1)
 }
 
+// svTimeMod Is a time shift constant used by sv (copied from sv sources).
 const svTimeMod = 4611686018427387914
 
+// svTime Parses time from sv status string.
+// It is a diff from the last start/stop.
 func svTime(status []byte) uint64 {
 	time := uint64(status[0])
 	time <<= 8
@@ -92,6 +123,7 @@ func svTime(status []byte) uint64 {
 	return time
 }
 
+// svNow Returns current time shifted with sv constant.
 func svNow() uint64 {
 	return uint64(svTimeMod + time.Now().Unix())
 }
