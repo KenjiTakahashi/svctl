@@ -65,7 +65,7 @@ func (c *cmdUp) Help() string {
 	return strings.TrimSpace(`
 up NAMES...   Starts service(s) with matching NAMES.
               NAMES support globing with '*' and '?'.
-`)
+	`)
 }
 
 func (c *cmdUp) Names() []string {
@@ -83,7 +83,7 @@ func (c *cmdDown) Help() string {
 	return strings.TrimSpace(`
 down NAMES...   Stops service(s) with matching NAMES.
                 NAMES support globing with '*' and '?'.
-`)
+	`)
 }
 
 func (c *cmdDown) Names() []string {
@@ -103,7 +103,7 @@ restart NAMES...   Restarts service(s) with matching NAMES.
                    NAMES support globing with '*' and '?'.
                    Waits up to 7 seconds for the service to get back up, then
                    reports TIMEOUT.
-`)
+	`)
 }
 
 func (c *cmdRestart) Names() []string {
@@ -121,7 +121,7 @@ func (c *cmdOnce) Help() string {
 	return strings.TrimSpace(`
 once NAMES...   Starts service once and does not try to restart it if it stops.
                 NAMES support globing with '*' and '?'.
-`)
+	`)
 }
 
 func (c *cmdOnce) Names() []string {
@@ -152,7 +152,7 @@ func (c *cmdSignal) Help() string {
 	return fmt.Sprintf(strings.TrimSpace(`
 %s NAMES...   Sends signal '%s' to service(s) with matching NAMES.
 %-[3]*s            NAMES support globing with '*' and '?'.
-`), c.action, m[c.action[0]], len(c.action), "")
+	`), c.action, m[c.action[0]], len(c.action), "")
 }
 
 func (c *cmdSignal) Names() []string {
