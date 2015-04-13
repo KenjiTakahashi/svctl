@@ -107,7 +107,7 @@ restart NAMES...   Restarts service(s) with matching NAMES.
 }
 
 func (c *cmdRestart) Names() []string {
-	return []string{"restart"}
+	return []string{"r", "restart"}
 }
 
 // cmdOnce Defines the "once" action.
