@@ -30,6 +30,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -54,15 +55,8 @@ type status struct {
 }
 
 // newStatus Creates new status representation for given directory and name.
-// Name is optional and for display purposes only, if not specified Base(dir) is used.
 func newStatus(dir, name string) *status {
-	s := &status{Offsets: make([]int, 2)}
-
-	if name != "" {
-		s.name = name
-	} else {
-		s.name = path.Base(dir)
-	}
+	s := &status{Offsets: make([]int, 2), name: name}
 	s.Offsets[0] = len(s.name)
 
 	status, err := s.status(dir)
@@ -136,8 +130,10 @@ func (s *status) String() string {
 	if s.svStatus == "RUNNING" {
 		fmt.Fprintf(&status, " (pid %d)", s.svPid)
 	}
-	fmt.Fprintf(&status, "%-[1]*s", s.Offsets[1]+3-status.Len()+s.Offsets[0]+3, "")
-	status.WriteString(fmt.Sprintf("%ds   ", svNow()-s.svTime))
+	fmt.Fprintf(
+		&status, "%-[1]*s%ds",
+		s.Offsets[1]+3-status.Len()+s.Offsets[0]+3, "", svNow()-s.svTime,
+	)
 	return status.String()
 }
 
@@ -176,12 +172,12 @@ func newCtl() *ctl {
 			}
 			return cmdMatchName(s[0])
 		}
-		services := c.Services(fmt.Sprintf("%s*", s[len(s)-1]))
+		services := c.Services(fmt.Sprintf("%s*", s[len(s)-1]), true)
 		compl := make([]string, len(services))
 		for i, service := range services {
 			compl[i] = fmt.Sprintf(
 				"%s %s ",
-				strings.Join(s[:len(s)-1], " "), path.Base(service),
+				strings.Join(s[:len(s)-1], " "), c.serviceName(service),
 			)
 		}
 		return compl
@@ -203,14 +199,31 @@ func (c *ctl) Close() {
 	c.line.Close()
 }
 
+// serviceName Returns name of the service, i.e. directory chain relative to current base.
+func (c *ctl) serviceName(dir string) string {
+	if name, err := filepath.Rel(c.basedir, dir); err == nil {
+		return name
+	}
+	return dir
+}
+
 // Services Returns paths to all services matching pattern.
-func (c *ctl) Services(pattern string) []string {
+func (c *ctl) Services(pattern string, toLog bool) []string {
 	if len(pattern) < len(c.basedir) || pattern[:len(c.basedir)] != c.basedir {
 		pattern = path.Join(c.basedir, pattern)
 	}
 	files, err := filepath.Glob(pattern)
 	if err != nil {
 		log.Printf("error getting services list: %s\n", err)
+	}
+	if toLog {
+		logs, err := filepath.Glob(path.Join(pattern, "log"))
+		if err != nil {
+			log.Printf("error getting logs list: %s\n", err)
+		} else {
+			files = append(files, logs...)
+			sort.Strings(files)
+		}
 	}
 	return files
 }
@@ -219,21 +232,13 @@ func (c *ctl) Services(pattern string) []string {
 func (c *ctl) Status(id string, toLog bool) {
 	// TODO: normally (up|down) and stuff?
 	statuses := []*status{}
-	for _, dir := range c.Services(id) {
+	for _, dir := range c.Services(id, toLog) {
 		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 			continue
 		}
 
-		status := newStatus(dir, "")
+		status := newStatus(dir, c.serviceName(dir))
 		statuses = append(statuses, status)
-
-		if toLog {
-			logdir := path.Join(dir, "log")
-			if _, err := os.Stat(logdir); !os.IsNotExist(err) {
-				status = newStatus(logdir, fmt.Sprintf("%s/LOG", path.Base(dir)))
-				statuses = append(statuses, status)
-			}
-		}
 
 		for i, offset := range status.Offsets {
 			if statuses[0].Offsets[i] < offset {
@@ -242,9 +247,7 @@ func (c *ctl) Status(id string, toLog bool) {
 		}
 	}
 	for _, status := range statuses {
-		for i, offset := range statuses[0].Offsets {
-			status.Offsets[i] = offset
-		}
+		status.Offsets = statuses[0].Offsets
 		fmt.Println(status)
 	}
 }
@@ -268,7 +271,7 @@ func (c *ctl) control(action []byte, service string) error {
 func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	status := newStatus(service, "")
+	status := newStatus(service, c.serviceName(service))
 	if status.Errored() {
 		return
 	}
@@ -288,7 +291,7 @@ func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGrou
 			c.Status(service, false)
 			return
 		case <-tick:
-			status := newStatus(service, "")
+			status := newStatus(service, c.serviceName(service))
 			if status.Check(action, start) {
 				fmt.Println(status)
 				return
@@ -354,7 +357,7 @@ func (c *ctl) Ctl(cmd string) bool {
 		if param == "" {
 			continue
 		}
-		for _, service := range c.Services(param) {
+		for _, service := range c.Services(param, false) {
 			wg.Add(1)
 			go c.ctl(action, service, start, &wg)
 		}
