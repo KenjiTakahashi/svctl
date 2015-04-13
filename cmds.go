@@ -110,6 +110,24 @@ func (c *cmdRestart) Names() []string {
 	return []string{"restart"}
 }
 
+// cmdOnce Defines the "once" action.
+type cmdOnce struct{}
+
+func (c *cmdOnce) Action() []byte {
+	return []byte{'o'}
+}
+
+func (c *cmdOnce) Help() string {
+	return strings.TrimSpace(`
+once NAMES...   Starts service once and does not try to restart it if it stops.
+                NAMES support globing with '*' and '?'.
+`)
+}
+
+func (c *cmdOnce) Names() []string {
+	return []string{"once"}
+}
+
 // cmdSignal Defines common struct for handling all actions
 // that send a single *NIX signal to the process.
 type cmdSignal struct {
@@ -160,6 +178,7 @@ func cmdAll() []cmd {
 		&cmdUp{},
 		&cmdDown{},
 		&cmdRestart{},
+		&cmdOnce{},
 		&cmdSignal{},
 	}
 }

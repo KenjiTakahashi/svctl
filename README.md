@@ -43,6 +43,8 @@ In accordance with the `sv` command, `svctl` uses `$SVDIR` environment variable 
 
 **\(r)estart NAMES...** Restarts service(s) with matching NAMES. Waits up to 7 seconds for the service to get back up, then reports TIMEOUT.
 
+**(o)nce NAMES...** Start service(s) once and does not try to restart them if they stop.
+
 **(p)ause NAMES...** Sends signal **STOP** to running service(s) with matching NAMES.
 
 **\(c)ont NAMES...** Sends signal **CONT** to running service(s) with matching NAMES.
