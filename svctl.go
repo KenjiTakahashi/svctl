@@ -40,7 +40,7 @@ import (
 )
 
 // status Represents current status of a single process.
-// Note that it gather all information during construction,
+// Note that it gathers all information during construction,
 // so it is generally meant to be short lived.
 type status struct {
 	name string
@@ -307,47 +307,20 @@ func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGrou
 //
 // If more than one service was specified with the command,
 // actions are delegated asynchronically.
-func (c *ctl) Ctl(cmd string) bool {
-	c.line.AppendHistory(cmd)
+func (c *ctl) Ctl(cmdStr string) bool {
+	c.line.AppendHistory(cmdStr)
 	start := svNow()
-	params := strings.Split(cmd, " ")
-	var action []byte
-	switch params[0] {
-	case "e", "exit":
-		return true
-	case "s", "status":
-		if len(params) == 1 {
-			c.Status("*", true)
-		} else {
-			for _, dir := range params[1:] {
-				c.Status(dir, true)
-			}
-		}
-		return false
-	case "?", "help":
-		if len(params) == 1 {
-			for _, cmd := range cmdAll() {
-				fmt.Println(cmd.Help())
-			}
-			return false
-		}
-		for _, param := range params[1:] {
-			cmd := cmdMatch(param)
-			if cmd == nil {
-				fmt.Printf("%s: unable to find action\n", param)
-			} else {
-				fmt.Println(cmd.Help())
-			}
-		}
-		return false
-	default:
-		cmd := cmdMatch(params[0])
-		if cmd == nil {
-			fmt.Printf("%s: unable to find action\n", params[0])
-			return false
-		}
-		action = cmd.Action()
+	params := strings.Split(strings.TrimSpace(cmdStr), " ")
+
+	cmd := cmdMatch(params[0])
+	if ctlCmd, ok := cmd.(ctlCmd); ok {
+		return ctlCmd.Run(c, params)
 	}
+	if cmd == nil {
+		fmt.Printf("%s: unable to find action\n", params[0])
+		return false
+	}
+	action := cmd.Action()
 
 	if len(params) == 1 {
 		params = append(params, "*")

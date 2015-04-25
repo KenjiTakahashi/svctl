@@ -62,6 +62,10 @@ func cmdAll() []cmd {
 		&cmdRestart{},
 		&cmdOnce{},
 		&cmdSignal{},
+
+		&ctlCmdStatus{},
+		&ctlCmdHelp{},
+		&ctlCmdExit{},
 	}
 }
 
