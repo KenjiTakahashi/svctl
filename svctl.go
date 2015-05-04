@@ -65,8 +65,8 @@ func newStatus(dir, name string) *status {
 
 		s.Offsets[1] = len("ERROR")
 	} else {
-		s.svStatus = svStatus(status)
 		s.svPid = svPid(status)
+		s.svStatus = svStatus(status, s.svPid)
 		s.svTime = svTime(status)
 
 		s.Offsets[1] = len(s.svStatus)
@@ -273,6 +273,7 @@ func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGrou
 
 	status := newStatus(service, c.serviceName(service))
 	if status.Errored() {
+		fmt.Println(status)
 		return
 	}
 	if status.CheckControl(action) {
@@ -287,7 +288,7 @@ func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGrou
 	for {
 		select {
 		case <-timeout:
-			fmt.Printf("TIMEOUT: ")
+			fmt.Print("TIMEOUT: ")
 			c.Status(service, false)
 			return
 		case <-tick:
@@ -330,7 +331,12 @@ func (c *ctl) Ctl(cmdStr string) bool {
 		if param == "" {
 			continue
 		}
-		for _, service := range c.Services(param, false) {
+		services := c.Services(param, false)
+		if len(services) == 0 {
+			fmt.Printf("%s: unable to find service\n", param)
+			continue
+		}
+		for _, service := range services {
 			wg.Add(1)
 			go c.ctl(action, service, start, &wg)
 		}

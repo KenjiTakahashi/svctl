@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+ft() {
+    F=$(ls -1 | tail -n 1)
+    N=${F##*.}
+    echo $1 > "z.$((N+1))"
+}
+
+trap "ft 'h'; exit" HUP
+trap "ft 'i'" INT
+trap "ft 'a'; exit" ALRM
+trap "ft 'q'" QUIT
+trap "ft '1'; exit" USR1
+trap "ft '2'; exit" USR2
+trap "ft 't'; exit" TERM
+
+while true; do sleep 0.1; done

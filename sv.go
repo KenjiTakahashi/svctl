@@ -37,7 +37,10 @@ func svPid(status []byte) uint {
 }
 
 // svStatus Parses process state from sv status string.
-func svStatus(status []byte) string {
+func svStatus(status []byte, pid uint) string {
+	if pid != 0 && status[16] != 0 {
+		return "PAUSED"
+	}
 	switch status[19] {
 	case 0:
 		return "STOPPED"
@@ -67,7 +70,7 @@ func svCheck(action, status []byte, start uint64) bool {
 			if pid != 0 || status[19] != 0 {
 				return false
 			}
-		case 't', 'k':
+		case 't', 'k', 'h', 'a', '1', '2':
 			if pid == 0 && status[17] == 'd' {
 				break
 			}
