@@ -42,6 +42,26 @@ func fatal(err error) {
 	}
 }
 
+func equal(s1, s2 []string) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	for i, s1e := range s1 {
+		if s1e != s2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func createRunitDir() string {
+	dir, err := ioutil.TempDir("", "svctl_tests")
+	fatal(err)
+	cmd := exec.Command("cp", "-r", "_testdata/", dir)
+	fatal(cmd.Run())
+	return dir
+}
+
 type runitRunner struct {
 	basedir  string
 	runsvdir *exec.Cmd
@@ -52,10 +72,7 @@ type runitRunner struct {
 }
 
 func newRunitRunner() *runitRunner {
-	dir, err := ioutil.TempDir("", "svctl_tests")
-	fatal(err)
-	cmd := exec.Command("cp", "-r", "_testdata/", dir)
-	fatal(cmd.Run())
+	dir := createRunitDir()
 
 	r := &runitRunner{
 		basedir: path.Join(dir, "_testdata"),
@@ -235,4 +252,61 @@ func TestCmd(t *testing.T) {
 
 	svctl.line.Close()
 	runit.Close()
+}
+
+func TestCompleter(t *testing.T) {
+	allCmds := []string{
+		"up ", "start ", "down ", "stop ", "r ", "restart ", "once ",
+		"pause ", "cont ", "hup ", "reload ", "alarm ", "interrupt ",
+		"quit ", "1 ", "2 ", "term ", "kill ", "status ", "help ", "exit ",
+	}
+	defs := []struct {
+		line string
+		pos  int
+
+		head        string
+		completions []string
+		tail        string
+	}{
+		{"", 0, "", allCmds, ""},
+		{"u", 1, "", []string{"up "}, ""},
+		{"u", 0, "", []string{"up "}, ""},
+		{"sto", 2, "", []string{"stop "}, ""},
+		{"stop ", 5, "stop ", []string{"longone ", "o ", "r0 ", "r1 ", "w "}, ""},
+		{"up r", 4, "up ", []string{"r0 ", "r1 "}, ""},
+		{"up o r", 6, "up o ", []string{"r0 ", "r1 "}, ""},
+		{"up lo r", 4, "up ", []string{"longone "}, " r"},
+		{"? ", 2, "? ", allCmds, ""},
+		{"help ", 5, "help ", allCmds, ""},
+		{"? st", 4, "? ", []string{"start ", "stop ", "status "}, ""},
+		{"? h term", 3, "? ", []string{"hup ", "help "}, " term"},
+		{"? st term", 3, "? ", []string{"start ", "stop ", "status "}, " term"},
+	}
+
+	dir := createRunitDir()
+	svctl := ctl{basedir: path.Join(dir, "_testdata")}
+
+	for _, def := range defs {
+		head, completions, tail := svctl.completer(def.line, def.pos)
+		if head != def.head {
+			t.Errorf(
+				"ERROR IN HEAD: `%s` != `%s` for `%s:%d`",
+				head, def.head, def.line, def.pos,
+			)
+		}
+		if !equal(completions, def.completions) {
+			t.Errorf(
+				"ERROR IN COMPLETIONS: `%v` != `%v` for `%s:%d`",
+				completions, def.completions, def.line, def.pos,
+			)
+		}
+		if tail != def.tail {
+			t.Errorf(
+				"ERROR IN TAIL: `%s` != `%s` for `%s:%d`",
+				tail, def.tail, def.line, def.pos,
+			)
+		}
+	}
+
+	os.RemoveAll(dir)
 }

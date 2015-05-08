@@ -164,24 +164,7 @@ func newCtl() *ctl {
 	}
 
 	c.line.SetTabCompletionStyle(liner.TabPrints)
-	c.line.SetCompleter(func(l string) []string {
-		s := strings.Split(l, " ")
-		if len(s) <= 1 {
-			if len(s) == 0 {
-				return cmdMatchName("")
-			}
-			return cmdMatchName(s[0])
-		}
-		services := c.Services(fmt.Sprintf("%s*", s[len(s)-1]), true)
-		compl := make([]string, len(services))
-		for i, service := range services {
-			compl[i] = fmt.Sprintf(
-				"%s %s ",
-				strings.Join(s[:len(s)-1], " "), c.serviceName(service),
-			)
-		}
-		return compl
-	})
+	c.line.SetWordCompleter(c.completer)
 
 	return c
 }
@@ -197,6 +180,31 @@ func (c *ctl) Close() {
 		log.Printf("error opening history file: %s\n", err)
 	}
 	c.line.Close()
+}
+
+func (c *ctl) completer(line string, pos int) (h string, compl []string, t string) {
+	s := strings.Split(line, " ")
+	if len(s) == 1 {
+		return "", cmdMatchName(line), ""
+	}
+	i := strings.Count(line[:pos], " ")
+
+	if s[0] == "?" || s[0] == "help" {
+		compl = cmdMatchName(s[i])
+	} else {
+		services := c.Services(fmt.Sprintf("%s*", s[i]), true)
+
+		compl = make([]string, len(services))
+		for i, service := range services {
+			compl[i] = fmt.Sprintf("%s ", c.serviceName(service))
+		}
+	}
+	h = fmt.Sprintf("%s ", strings.Join(s[:i], " "))
+	t = strings.Join(s[i+1:], " ")
+	if t != "" {
+		t = fmt.Sprintf(" %s", t)
+	}
+	return
 }
 
 // serviceName Returns name of the service, i.e. directory chain relative to current base.
