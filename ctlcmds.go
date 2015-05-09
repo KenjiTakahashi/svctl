@@ -81,7 +81,14 @@ func (c *ctlCmdHelp) Names() []string {
 func (c *ctlCmdHelp) Run(ctl *ctl, params []string) bool {
 	if len(params) == 1 {
 		for _, cmd := range cmdAll() {
-			fmt.Println(cmd.Help())
+			if match, ok := cmd.(cmdMatcher); ok {
+				for _, name := range cmd.Names() {
+					match.Match(name)
+					ctl.println(cmd.Help())
+				}
+				continue
+			}
+			ctl.println(cmd.Help())
 		}
 		return false
 	}

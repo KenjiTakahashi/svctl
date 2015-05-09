@@ -58,7 +58,8 @@ type stdout struct {
 }
 
 func (s *stdout) Write(p []byte) (n int, err error) {
-	s.value = append(s.value, string(p)[:len(p)-1])
+	value := strings.Split(string(p), "\n")
+	s.value = append(s.value, value[:len(value)-1]...)
 	return len(p), nil
 }
 
@@ -66,6 +67,14 @@ func (s *stdout) ReadString() string {
 	v := s.value[0]
 	s.value = s.value[1:]
 	return v
+}
+
+func (s *stdout) Len() int {
+	return len(s.value)
+}
+
+func (s *stdout) Clear() {
+	s.value = []string{}
 }
 
 func createRunitDir() string {
