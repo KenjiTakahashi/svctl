@@ -146,12 +146,13 @@ func (s *status) Errored() bool {
 type ctl struct {
 	line    *liner.State
 	basedir string
+	stdout  io.Writer
 }
 
 // newCtl Creates new ctl instance.
 // Initializes input prompt, reads history, reads $SVDIR.
-func newCtl() *ctl {
-	c := &ctl{line: liner.NewLiner()}
+func newCtl(stdout io.Writer) *ctl {
+	c := &ctl{line: liner.NewLiner(), stdout: stdout}
 
 	fn, _ := xdg.DataFile("svctl/hist")
 	if f, err := os.Open(fn); err == nil {
@@ -207,6 +208,14 @@ func (c *ctl) completer(line string, pos int) (h string, compl []string, t strin
 	return
 }
 
+func (c *ctl) printf(format string, a ...interface{}) {
+	fmt.Fprintf(c.stdout, format, a...)
+}
+
+func (c *ctl) println(a ...interface{}) {
+	fmt.Fprintln(c.stdout, a...)
+}
+
 // serviceName Returns name of the service, i.e. directory chain relative to current base.
 func (c *ctl) serviceName(dir string) string {
 	if name, err := filepath.Rel(c.basedir, dir); err == nil {
@@ -256,7 +265,7 @@ func (c *ctl) Status(id string, toLog bool) {
 	}
 	for _, status := range statuses {
 		status.Offsets = statuses[0].Offsets
-		fmt.Println(status)
+		c.println(status)
 	}
 }
 
@@ -281,12 +290,12 @@ func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGrou
 
 	status := newStatus(service, c.serviceName(service))
 	if status.Errored() {
-		fmt.Println(status)
+		c.println(status)
 		return
 	}
 	if status.CheckControl(action) {
 		if err := c.control(action, service); err != nil {
-			fmt.Println(err)
+			c.println(err)
 			return
 		}
 	}
@@ -296,13 +305,13 @@ func (c *ctl) ctl(action []byte, service string, start uint64, wg *sync.WaitGrou
 	for {
 		select {
 		case <-timeout:
-			fmt.Print("TIMEOUT: ")
+			c.printf("TIMEOUT: ")
 			c.Status(service, false)
 			return
 		case <-tick:
 			status := newStatus(service, c.serviceName(service))
 			if status.Check(action, start) {
-				fmt.Println(status)
+				c.println(status)
 				return
 			}
 		}
@@ -326,7 +335,7 @@ func (c *ctl) Ctl(cmdStr string) bool {
 		return ctlCmd.Run(c, params)
 	}
 	if cmd == nil {
-		fmt.Printf("%s: unable to find action\n", params[0])
+		c.printf("%s: unable to find action\n", params[0])
 		return false
 	}
 	action := cmd.Action()
@@ -341,7 +350,7 @@ func (c *ctl) Ctl(cmdStr string) bool {
 		}
 		services := c.Services(param, false)
 		if len(services) == 0 {
-			fmt.Printf("%s: unable to find service\n", param)
+			c.printf("%s: unable to find service\n", param)
 			continue
 		}
 		for _, service := range services {
@@ -359,7 +368,7 @@ func (c *ctl) Ctl(cmdStr string) bool {
 func (c *ctl) Run() bool {
 	cmd, err := c.line.Prompt("svctl> ")
 	if err == io.EOF {
-		fmt.Println()
+		c.println()
 		return true
 	} else if err != nil {
 		log.Printf("error reading prompt contents: %s\n", err)
@@ -370,7 +379,7 @@ func (c *ctl) Run() bool {
 
 // main Creates svctl entry point, prints all processes statuses and launches event loop.
 func main() {
-	ctl := newCtl()
+	ctl := newCtl(os.Stdout)
 	defer ctl.Close()
 	ctl.Status("*", true)
 	for !ctl.Run() {

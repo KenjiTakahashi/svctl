@@ -21,10 +21,7 @@
 
 package main
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
 // ctlCmd Defines methods common for svctl meta-commands, i.e. ones
 // that are not sent to runit, but executed locally.
@@ -91,9 +88,9 @@ func (c *ctlCmdHelp) Run(ctl *ctl, params []string) bool {
 	for _, param := range params[1:] {
 		cmd := cmdMatch(param)
 		if cmd == nil {
-			fmt.Printf("%s: unable to find action\n", param)
+			ctl.printf("%s: unable to find action\n", param)
 		} else {
-			fmt.Println(cmd.Help())
+			ctl.println(cmd.Help())
 		}
 	}
 	return false

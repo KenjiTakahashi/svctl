@@ -22,7 +22,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -54,6 +53,21 @@ func equal(s1, s2 []string) bool {
 	return true
 }
 
+type stdout struct {
+	value []string
+}
+
+func (s *stdout) Write(p []byte) (n int, err error) {
+	s.value = append(s.value, string(p)[:len(p)-1])
+	return len(p), nil
+}
+
+func (s *stdout) ReadString() string {
+	v := s.value[0]
+	s.value = s.value[1:]
+	return v
+}
+
 func createRunitDir() string {
 	dir, err := ioutil.TempDir("", "svctl_tests")
 	fatal(err)
@@ -67,8 +81,7 @@ type runitRunner struct {
 	runsvdir *exec.Cmd
 	zs       map[string]int
 
-	stdout     *bufio.Reader
-	realStdout *os.File
+	stdout *stdout
 }
 
 func newRunitRunner() *runitRunner {
@@ -77,13 +90,8 @@ func newRunitRunner() *runitRunner {
 	r := &runitRunner{
 		basedir: path.Join(dir, "_testdata"),
 		zs:      map[string]int{"r0": 0, "r1": 0, "o": 0},
+		stdout:  &stdout{},
 	}
-
-	stdr, stdw, err := os.Pipe()
-	fatal(err)
-	r.stdout = bufio.NewReader(stdr)
-	r.realStdout = os.Stdout
-	os.Stdout = stdw
 
 	r.runsvdir = exec.Command("runsvdir", "-P", r.basedir)
 	fatal(r.runsvdir.Start())
@@ -97,17 +105,11 @@ func (r *runitRunner) Close() {
 	r.runsvdir.Process.Signal(syscall.SIGHUP)
 	r.runsvdir.Process.Wait()
 	os.RemoveAll(path.Dir(r.basedir))
-	os.Stdout.Close()
-	os.Stdout = r.realStdout
 }
 
 func (r *runitRunner) Assert(t *testing.T, cmd *cmdDef) {
 	for _, service := range cmd.services {
-		stdout, err := r.stdout.ReadString('\n')
-		if err != nil {
-			t.Errorf("ERROR READING `stdout`: `%s`", err)
-			continue
-		}
+		stdout := r.stdout.ReadString()
 		pieces := strings.Split(stdout, "   ")
 		if !contains(cmd.services, pieces[0]) {
 			t.Errorf(
@@ -172,12 +174,7 @@ func (r *runitRunner) Assert(t *testing.T, cmd *cmdDef) {
 }
 
 func (r *runitRunner) AssertError(t *testing.T, msg string) {
-	stdout, err := r.stdout.ReadString('\n')
-	if err != nil {
-		t.Errorf("ERROR READING `stdout`: `%s`", err)
-		return
-	}
-	stdout = stdout[:len(stdout)-1]
+	stdout := r.stdout.ReadString()
 	if stdout != msg {
 		t.Errorf("ERROR IN STATUS: `%s` != `%s`", stdout, msg)
 	}
@@ -192,7 +189,11 @@ type cmdDef struct {
 
 func TestCmd(t *testing.T) {
 	runit := newRunitRunner()
-	svctl := ctl{basedir: runit.basedir, line: liner.NewLiner()}
+	svctl := ctl{
+		line:    liner.NewLiner(),
+		basedir: runit.basedir,
+		stdout:  runit.stdout,
+	}
 
 	// Tests for correct usage.
 	cmds := []cmdDef{
