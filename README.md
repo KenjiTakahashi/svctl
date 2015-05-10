@@ -1,12 +1,16 @@
-[![Build Status](https://travis-ci.org/KenjiTakahashi/svctl.png?branch=master)](https://travis-ci.org/KenjiTakahashi/svctl)
+[![Build Status](https://travis-ci.org/KenjiTakahashi/svctl.png?branch=master)](https://travis-ci.org/KenjiTakahashi/svctl) [![codecov.io](http://codecov.io/github/KenjiTakahashi/svctl/coverage.svg?branch=master)](http://codecov.io/github/KenjiTakahashi/svctl?branch=master)
 
 **svctl** is an interactive [runit](http://smarden.org/runit/) controller.
 
 ## screenshot
 
+![screenshot](https://copy.com/MN0Kz8WIjhYLslie)
+
 ## installation
 
-First, you have to [get Go](http://golang.org/doc/install).
+**Note:** Binaries are available for download at [Github Releases](https://github.com/KenjiTakahashi/svctl/releases).
+
+First, you have to [get Go](http://golang.org/doc/install). Note that version >= 1.2 is required.
 
 Then, just
 
