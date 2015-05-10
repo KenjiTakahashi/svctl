@@ -53,6 +53,9 @@ func (c *ctlCmdStatus) Run(ctl *ctl, params []string) bool {
 		ctl.Status("*", true)
 	} else {
 		for _, dir := range params[1:] {
+			if dir == "" {
+				continue
+			}
 			ctl.Status(dir, true)
 		}
 	}

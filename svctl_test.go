@@ -53,6 +53,15 @@ func equal(s1, s2 []string) bool {
 	return true
 }
 
+func containsTrimmed(slice []string, str string) bool {
+	for _, elem := range slice {
+		if strings.TrimSpace(elem) == strings.TrimSpace(str) {
+			return true
+		}
+	}
+	return false
+}
+
 type stdout struct {
 	value []string
 }
@@ -120,7 +129,7 @@ func (r *runitRunner) Assert(t *testing.T, cmd *cmdDef) {
 	for _, service := range cmd.services {
 		stdout := r.stdout.ReadString()
 		pieces := strings.Split(stdout, "   ")
-		if !contains(cmd.services, pieces[0]) {
+		if !containsTrimmed(cmd.services, pieces[0]) {
 			t.Errorf(
 				"ERROR IN STATUS: service `%s` != `%s` for %s:%s",
 				pieces[0], service, cmd.cmd, service,
@@ -238,6 +247,8 @@ func TestCmd(t *testing.T) {
 		{"s", []string{"o"}, "STOPPED", 0},
 		{"once", []string{"r1"}, "RUNNING", 0},
 		{"s", []string{"r0", "o"}, "STOPPED", 0},
+		{"s", []string{"r0 ", "o"}, "STOPPED", 0},
+		{"u", []string{"r0 ", "o"}, "RUNNING", 0},
 	}
 	for _, cmd := range cmds {
 		if cmd.cmd == "" {
@@ -247,6 +258,35 @@ func TestCmd(t *testing.T) {
 		svctl.Ctl(strings.Join(append([]string{cmd.cmd}, cmd.services...), " "))
 		runit.Assert(t, &cmd)
 	}
+
+	// Tests for wildcards and defaults.
+	assert := func() {
+		for runit.stdout.Len() != 0 {
+			stdout := runit.stdout.ReadString()
+			pieces := strings.Fields(stdout)
+			pieces[2] = strings.Join(pieces[2:], " ")
+			if pieces[1] == "ERROR" && pieces[2] == "unable to open supervise/ok" {
+				if pieces[0] != "longone" && pieces[0] != "w" {
+					t.Errorf("ERROR IN IMPLICIT *: `%s`", stdout)
+				}
+				continue
+			}
+			if !strings.HasPrefix(pieces[1], "RUNNING") {
+				t.Errorf("ERROR IN IMPLICIT *: `%s` != `RUNNING`", pieces[1])
+			}
+			if pieces[0] != "o" && pieces[0] != "r0" && pieces[0] != "r1" {
+				t.Errorf("ERROR IN IMPLICIT *: Unknown service `%s`", pieces[0])
+			}
+		}
+	}
+	svctl.Ctl("u")
+	assert()
+	svctl.Ctl("s")
+	assert()
+	svctl.Ctl("s r?")
+	runit.Assert(t, &cmdDef{"s", []string{"r0", "r1"}, "RUNNING", 0})
+	svctl.Ctl("s l*ne")
+	runit.Assert(t, &cmdDef{"s", []string{"longone"}, "ERROR", 0})
 
 	// Tests for errors.
 	// Should span to other actions no problem, so just check with `u`.

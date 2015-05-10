@@ -242,20 +242,24 @@ func (c *ctl) Services(pattern string, toLog bool) []string {
 			sort.Strings(files)
 		}
 	}
-	return files
+
+	dirs := []string{}
+	for _, file := range files {
+		if fi, err := os.Stat(file); err == nil && fi.IsDir() {
+			dirs = append(dirs, file)
+		}
+	}
+	return dirs
 }
 
 // Status Prints all statuses matching id and optionally their log process statuses.
 func (c *ctl) Status(id string, toLog bool) {
 	// TODO: normally (up|down) and stuff?
-	statuses := []*status{}
-	for _, dir := range c.Services(id, toLog) {
-		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
-			continue
-		}
-
+	services := c.Services(id, toLog)
+	statuses := make([]*status, len(services))
+	for i, dir := range services {
 		status := newStatus(dir, c.serviceName(dir))
-		statuses = append(statuses, status)
+		statuses[i] = status
 
 		for i, offset := range status.Offsets {
 			if statuses[0].Offsets[i] < offset {
