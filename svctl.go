@@ -173,12 +173,13 @@ func newCtl(stdout io.Writer) *ctl {
 // Close Closes input prompt, saves history to file.
 func (c *ctl) Close() {
 	fn, _ := xdg.DataFile("svctl/hist")
-	if f, err := os.Create(fn); err == nil {
-		if n, err := c.line.WriteHistory(f); err != nil {
-			log.Printf("error writing history file: %s, lines written: %d\n", err, n)
-		}
-	} else {
+	f, err := os.Create(fn)
+	if err != nil {
 		log.Printf("error opening history file: %s\n", err)
+		return
+	}
+	if n, err := c.line.WriteHistory(f); err != nil {
+		log.Printf("error writing history file: %s, lines written: %d\n", err, n)
 	}
 	c.line.Close()
 }
