@@ -358,8 +358,8 @@ func (c *ctl) Ctl(cmdStr string) bool {
 			c.printf("%s: unable to find service\n", param)
 			continue
 		}
+		wg.Add(len(services))
 		for _, service := range services {
-			wg.Add(1)
 			go c.ctl(action, service, start, &wg)
 		}
 	}
