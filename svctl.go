@@ -182,6 +182,7 @@ func (c *ctl) Close() {
 		log.Printf("error writing history file: %s, lines written: %d\n", err, n)
 	}
 	c.line.Close()
+	f.Close()
 }
 
 func (c *ctl) completer(line string, pos int) (h string, compl []string, t string) {
