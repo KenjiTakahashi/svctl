@@ -1,5 +1,5 @@
 // svctl
-// Copyright (C) 2015 Karol 'Kenji Takahashi' Woźniak
+// Copyright (C) 2015,2023 Karol 'Kenji Takahashi' Woźniak
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -89,7 +89,7 @@ func (s *stdout) Clear() {
 func createRunitDir() string {
 	dir, err := ioutil.TempDir("", "svctl_tests")
 	fatal(err)
-	cmd := exec.Command("cp", "-r", "_testdata/", dir)
+	cmd := exec.Command("cp", "-r", "testdata/", dir)
 	fatal(cmd.Run())
 	return dir
 }
@@ -106,7 +106,7 @@ func newRunitRunner() *runitRunner {
 	dir := createRunitDir()
 
 	r := &runitRunner{
-		basedir: path.Join(dir, "_testdata"),
+		basedir: path.Join(dir, "testdata"),
 		zs:      map[string]int{"r0": 0, "r1": 0, "o": 0},
 		stdout:  &stdout{},
 	}
@@ -334,7 +334,7 @@ func TestCompleter(t *testing.T) {
 	}
 
 	dir := createRunitDir()
-	svctl := ctl{basedir: path.Join(dir, "_testdata")}
+	svctl := ctl{basedir: path.Join(dir, "testdata")}
 
 	for _, def := range defs {
 		head, completions, tail := svctl.completer(def.line, def.pos)
