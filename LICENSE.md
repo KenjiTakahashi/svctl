@@ -1,5 +1,6 @@
-svctl
-Copyright (C) 2015 Karol 'Kenji Takahashi' Woźniak
+MIT License
+
+Copyright (C) 2015,2023 Karol 'Kenji Takahashi' Woźniak
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the "Software"),
