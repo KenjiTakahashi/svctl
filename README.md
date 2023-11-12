@@ -1,5 +1,4 @@
-[![Build Status](https://github.com/KenjiTakahashi/svctl/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/KenjiTakahashi/svctl/actions/workflows/tests.yml)
-[![Build Status](https://travis-ci.org/KenjiTakahashi/svctl.png?branch=master)](https://travis-ci.org/KenjiTakahashi/svctl) [![codecov.io](http://codecov.io/github/KenjiTakahashi/svctl/coverage.svg?branch=master)](http://codecov.io/github/KenjiTakahashi/svctl?branch=master)
+[![Build Status](https://github.com/KenjiTakahashi/svctl/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/KenjiTakahashi/svctl/actions/workflows/tests.yml) [![Coverage](https://kenjitakahashi.github.io/svctl/master/badge.svg)](https://kenjitakahashi.github.io/svctl/master/)
 
 **svctl** is an interactive [runit](http://smarden.org/runit/) controller.
 
